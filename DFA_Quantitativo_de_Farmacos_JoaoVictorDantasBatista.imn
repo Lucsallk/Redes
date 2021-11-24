@@ -1,0 +1,324 @@
+node n1 {
+    type router
+    model host
+    network-config {
+	hostname DComp
+	!
+	interface eth0
+	 ipv6 address 2001:db8:1::10/64
+	 ip address 200.17.121.13/24
+	!
+    }
+    canvas c1
+    iconcoords {350.0 133.0}
+    labelcoords {355.0 108.0}
+    interface-peer {eth0 n2}
+    custom-config {
+	custom-config-id service:UserDefined
+	custom-command UserDefined
+	config {
+	files=('O_Servidor.py', )
+	cmdup=('python O_Servidor.py', )
+	meta=Servidor .
+	}
+    }
+    custom-config {
+	custom-config-id service:UserDefined:O_Servidor.py
+	custom-command O_Servidor.py
+	config {
+	from socket import *
+	
+	f = open("Estoque.txt","w")
+	f.write("Iboprofeno = 10 \n")
+	f.write("Tilenol = 2 \n")
+	f.write("Milanta = 4 \n")
+	f.close()
+	
+	portaServidor = 5000
+	
+	socketServidor = socket (AF_INET, SOCK_STREAM)
+	
+	socketServidor.bind (('200.17.121.13', portaServidor))
+	
+	socketServidor.listen (5)
+	FORMAT = "utf-8"
+	# Python 2
+	#print "O servidor esta pronto para receber"
+	
+	# Python 3
+	#print ("O servidor esta pronto para receber")
+	
+	while 1 :
+	
+	    socketConexao, endereco = socketServidor.accept ()
+	
+	    frase = socketConexao.recv (1024)
+	    if(frase == "pull"):
+		file = open("Estoque.txt","r")
+		data = file.read()
+		socketConexao.send("Estoque.txt".encode(FORMAT))
+		socketConexao.recv(1024).decode(FORMAT)
+		socketConexao.send(data.encode(FORMAT))
+	    	socketConexao.close ()
+	    elif(frase == "push"):
+		data = socketConexao.recv(1024).decode(FORMAT)
+		socketConexao.send("Recebido".encode(FORMAT))
+		socketConexao.close ()
+		file = open("Estoque.txt","w")
+		file.write(data)
+		file.close()
+		
+	    else:
+	    	socketConexao.close ()
+	
+	}
+    }
+    services {DefaultRoute SSH UserDefined}
+}
+
+node n2 {
+    type router
+    model router
+    network-config {
+	hostname n2
+	!
+	interface eth1
+	 ipv6 address 2001:db8:1::1/64
+	 ip address 200.17.121.1/24
+	!
+	interface eth0
+	 ipv6 address 2001:db8:0::1/64
+	 ip address 10.0.2.1/24
+	!
+    }
+    canvas c1
+    iconcoords {404.0 322.0}
+    labelcoords {404.0 354.0}
+    interface-peer {eth0 n5}
+    interface-peer {eth1 n1}
+}
+
+node n3 {
+    type router
+    model PC
+    network-config {
+	hostname n3
+	!
+	interface eth0
+	 ipv6 address 2001:db8:0::20/64
+	 ip address 10.0.2.20/24
+	!
+    }
+    canvas c1
+    iconcoords {601.0 124.0}
+    labelcoords {602.0 97.0}
+    interface-peer {eth0 n5}
+    custom-config {
+	custom-config-id service:UserDefined
+	custom-command UserDefined
+	config {
+	files=('O_Cliente.py', )
+	cmdup=('python O_Cliente.py', )
+	meta=Cliente .
+	}
+    }
+    custom-config {
+	custom-config-id service:UserDefined:O_Cliente.py
+	custom-command O_Cliente.py
+	config {
+	
+	from socket import *
+	import os.path
+	
+	nomeServidor = '200.17.121.13'
+	
+	portaServidor =  5000
+	
+	socketCliente = socket (AF_INET, SOCK_STREAM)
+	
+	socketCliente.connect ((nomeServidor, portaServidor))
+	
+	# Python 2
+	frase = raw_input ('Escolha entre os comandos pull, push e list: ')
+	
+	# Python 3
+	#frase = input ('Escolha entre os comandos pull e push: ')
+	
+	if(frase == "pull"):
+		socketCliente.send (frase.encode())
+		filename = socketCliente.recv(1024).decode("utf-8")
+		#print("NOME")
+		#print(filename)
+		socketCliente.send("OK".encode())
+		data = socketCliente.recv(1024).decode("utf-8")
+		print("Remedios presentes no armazen")
+		print(data)
+		file = open(filename, 'w')
+		file.write(data)
+		socketCliente.close ()
+	
+	elif(frase == "push"):
+		
+		if os.path.isfile("Estoque.txt"):
+			socketCliente.send (frase.encode())
+			file = open("Estoque.txt","r")
+			data = file.read()
+			socketCliente.send(data.encode("utf-8"))
+			recebido = socketCliente.recv(1024).decode("utf-8")
+			print(recebido)
+		else:
+			print("[ERRO]: Primeiro e preciso rodar o comando pull")
+		socketCliente.close ()
+	elif(frase == "list"):
+		print("Como interagir com o Estoque")
+		print("Use o comando 'pull' para receber o arquivo de estoque")
+		print("Use o comando 'push' para enviar suas alteracoes do estoque")	
+	
+	else:	
+		print("[ERRO]: Comando invalido")
+		socketCliente.close ()
+	
+	}
+    }
+    services {DefaultRoute UserDefined}
+}
+
+node n4 {
+    type router
+    model PC
+    network-config {
+	hostname n4
+	!
+	interface eth0
+	 ipv6 address 2001:db8:0::21/64
+	 ip address 10.0.2.21/24
+	!
+    }
+    canvas c1
+    iconcoords {815.0 127.0}
+    labelcoords {817.0 99.0}
+    interface-peer {eth0 n5}
+    custom-config {
+	custom-config-id service:UserDefined
+	custom-command UserDefined
+	config {
+	files=('O_Cliente.py', )
+	cmdup=('python O_Cliente.py', )
+	meta=Cliente .
+	}
+    }
+    custom-config {
+	custom-config-id service:UserDefined:O_Cliente.py
+	custom-command O_Cliente.py
+	config {
+	
+	from socket import *
+	import os.path
+	
+	nomeServidor = '200.17.121.13'
+	
+	portaServidor =  5000
+	
+	socketCliente = socket (AF_INET, SOCK_STREAM)
+	
+	socketCliente.connect ((nomeServidor, portaServidor))
+	
+	# Python 2
+	frase = raw_input ('Escolha entre os comandos pull, push e list: ')
+	
+	# Python 3
+	#frase = input ('Escolha entre os comandos pull e push: ')
+	
+	if(frase == "pull"):
+		socketCliente.send (frase.encode())
+		filename = socketCliente.recv(1024).decode("utf-8")
+		#print("NOME")
+		#print(filename)
+		socketCliente.send("OK".encode())
+		data = socketCliente.recv(1024).decode("utf-8")
+		print("Remedios presentes no armazen")
+		print(data)
+		file = open(filename, 'w')
+		file.write(data)
+		socketCliente.close ()
+	
+	elif(frase == "push"):
+		
+		if os.path.isfile("Estoque.txt"):
+			socketCliente.send (frase.encode())
+			file = open("Estoque.txt","r")
+			data = file.read()
+			socketCliente.send(data.encode("utf-8"))
+			recebido = socketCliente.recv(1024).decode("utf-8")
+			print(recebido)
+		else:
+			print("[ERRO]: Primeiro e preciso rodar o comando pull")
+		socketCliente.close ()
+	elif(frase == "list"):
+		print("Como interagir com o Estoque")
+		print("Use o comando 'pull' para receber o arquivo de estoque")
+		print("Use o comando 'push' para enviar suas alteracoes do estoque")	
+	
+	else:	
+		print("[ERRO]: Comando invalido")
+		socketCliente.close ()
+	
+	}
+    }
+    services {OSPFv3MDR DefaultRoute UserDefined}
+}
+
+node n5 {
+    type lanswitch
+    network-config {
+	hostname n5
+	!
+    }
+    canvas c1
+    iconcoords {665.0 313.0}
+    labelcoords {665.0 337.0}
+    interface-peer {e0 n3}
+    interface-peer {e1 n4}
+    interface-peer {e2 n2}
+}
+
+link l1 {
+    nodes {n3 n5}
+    bandwidth 0
+}
+
+link l2 {
+    nodes {n4 n5}
+    bandwidth 0
+}
+
+link l3 {
+    nodes {n5 n2}
+    bandwidth 0
+}
+
+link l4 {
+    nodes {n2 n1}
+    bandwidth 0
+}
+
+canvas c1 {
+    name {Canvas1}
+}
+
+option global {
+    interface_names no
+    ip_addresses yes
+    ipv6_addresses yes
+    node_labels yes
+    link_labels yes
+    show_api no
+    background_images no
+    annotations yes
+    grid yes
+    traffic_start 0
+}
+
+option session {
+}
+
